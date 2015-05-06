@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDESourceControlProjectFavoriteDictionaryKey</key>
+	<false/>
+	<key>IDESourceControlProjectIdentifier</key>
+	<string>492875C1-08CF-4535-9768-53E681BE8FC0</string>
+	<key>IDESourceControlProjectName</key>
+	<string>kinect_clock</string>
+	<key>IDESourceControlProjectOriginsDictionary</key>
+	<dict>
+		<key>3193556AA265E9EAE983791AC7ADBCF1E93C1293</key>
+		<string>https://github.com/jssolichin/kinect-clock.git</string>
+	</dict>
+	<key>IDESourceControlProjectPath</key>
+	<string>kinect_clock.xcodeproj</string>
+	<key>IDESourceControlProjectRelativeInstallPathDictionary</key>
+	<dict>
+		<key>3193556AA265E9EAE983791AC7ADBCF1E93C1293</key>
+		<string>../..</string>
+	</dict>
+	<key>IDESourceControlProjectURL</key>
+	<string>https://github.com/jssolichin/kinect-clock.git</string>
+	<key>IDESourceControlProjectVersion</key>
+	<integer>111</integer>
+	<key>IDESourceControlProjectWCCIdentifier</key>
+	<string>3193556AA265E9EAE983791AC7ADBCF1E93C1293</string>
+	<key>IDESourceControlProjectWCConfigurations</key>
+	<array>
+		<dict>
+			<key>IDESourceControlRepositoryExtensionIdentifierKey</key>
+			<string>public.vcs.git</string>
+			<key>IDESourceControlWCCIdentifierKey</key>
+			<string>3193556AA265E9EAE983791AC7ADBCF1E93C1293</string>
+			<key>IDESourceControlWCCName</key>
+			<string>kinect_clock</string>
+		</dict>
+	</array>
+</dict>
+</plist>
