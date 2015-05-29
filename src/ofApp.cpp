@@ -23,6 +23,17 @@ void ofApp::setup(){
         ofLogNotice() << "zero plane dist: " << kinect.getZeroPlaneDistance() << "mm";
     }
     
+    kinect.setCameraTiltAngle(20);
+    
+    depthImage.allocate(kinect.width, kinect.height);
+    grayImage.allocate(kinect.width, kinect.height);
+    colorImage.allocate(kinect.width, kinect.height);
+    redImage.allocate(kinect.width, kinect.height);
+    
+    nearThreshold = 0;
+    farThreshold  = 32;
+    
+    
     ofSetFrameRate(60);
     
     glPointSize(3);
@@ -32,40 +43,168 @@ void ofApp::setup(){
     
     w = 640;
     h = 480;
-    
-    minFigureDistance = 400;
-    maxFigureDistance = 1300;
-    
-    lastSampleLoc[0] = rand() % w;
-    lastSampleLoc[1] = rand() % h;
     nearby = 20;
     minConnectionDistance = 10;
     maxConnectionDistance = 30;
-
+    
+    minFigureDistance = 400;
+    maxFigureDistance = 1300;
+    lastSampleLoc[0] = rand() % w;
+    lastSampleLoc[1] = rand() % h;
+    
+    kinect.enableDepthNearValueWhite(false);
+    
+    finder.setup("haarcascade_frontalface_default.xml");
+    img.loadImage("test.jpg");
+    
+    cam = ofCamera();
 }
 
 //--------------------------------------------------------------
 void ofApp::update(){
+    
     kinect.update();
+    
+    /** DEBUG **/
+    
+    //depthImage.setFromPixels(pix, kinect.width, kinect.height);
+    //depthImage.flagImageChanged();
+    
+    grayImage.setFromPixels(kinect.getDepthPixels(), kinect.width, kinect.height);
+    grayImage.mirror(false, true);
+    
+    unsigned char * pix = grayImage.getPixels();
+    int numPixels = grayImage.getWidth() * grayImage.getHeight()-1;
+    
+    colorImage.setFromPixels(kinect.getPixels(), kinect.width, kinect.height);
+    colorImage.mirror(false, true);
+    colorImage.convertToGrayscalePlanarImage(redImage, 0);
+    
+    
+    for(int i = numPixels; i > 0 ; i--){
+        if( pix[i] > nearThreshold && pix[i] < farThreshold ){
+            pix[i] = 255;
+        }else{
+            pix[i] = 0;
+        }
+    }
+    
+    //update the cv image
+    grayImage.flagImageChanged();
+    
+    
+    unsigned char * red = redImage.getPixels();
+    //numPixels = redImage.getWidth() * redImage.getHeight();
+    
+    contourFinder.findContours(grayImage, 900, (kinect.width*kinect.height)/8, 20, false);
+    if(contourFinder.nBlobs >= 2){
+        ofxCvBlob blob0 = contourFinder.blobs.at(0);
+        ofxCvBlob blob1 = contourFinder.blobs.at(1);
+        
+        /*
+         finder.findHaarObjects(redImage);
+         if(finder.blobs.size() >= 2){
+         
+         ofxCvBlob blob0 = finder.blobs[0];
+         ofxCvBlob blob1 = finder.blobs[1];
+         */
+        
+        blobQ = twoToQ(blob0, blob1);
+        
+    }
+    
+    
 }
 
 //--------------------------------------------------------------
 void ofApp::draw(){
     ofSetColor(255, 255, 255);
     
+    
+    /** DEBUG **/
+    
+    //depthImage.draw(15, 15, 400, 300);
+    redImage.draw(425, 15, 400, 300);
+    grayImage.draw(15, 325, 400, 300);
+    contourFinder.draw(15, 325, 400, 300);
+    //redImage.draw(0, 0);
+    
+    
+    
+    char reportStr[1024];
+    sprintf(reportStr, "set near threshold %i (press: + -)\nset far threshold %i (press: < >)\nnum blobs found %i, fps: %i", nearThreshold, farThreshold, (int)contourFinder.blobs.size(), (int)ofGetFrameRate());
+    ofDrawBitmapString(reportStr, 20, 650);
+    
+    /** App **/
+    
+    for(unsigned int i = 0; i < finder.blobs.size(); i++) {
+        
+        ofRectangle cur = finder.blobs[i].boundingRect;
+        ofRect(cur.x, cur.y, cur.width, cur.height);
+    }
+    
+    
+    //easyCam.lookAt(ofVec3f(0, 0, 0));
+    
     easyCam.begin();
-    drawPointCloud();
+    
+    ofPushMatrix();
+    
+    blobQ.getRotate(blobAngle, blobAxis.x, blobAxis.y, blobAxis.z);
+    
+    ofRotate(blobAngle, blobAxis.x, blobAxis.y, blobAxis.z);
+    
+    ofSetColor(0,0,255);
+    ofNoFill();
+    ofDrawBox(0,0, 0, 50, 50, 100);
+    
+    //drawPointCloud();
+    drawPointCloudAll();
+    
+    ofPopMatrix();
+    
     easyCam.end();
     
-    //kinect.drawDepth(10, 10, 400, 300);
+    
 }
+
+ofQuaternion ofApp::qFromV(ofVec3f v, ofVec3f u)
+{
+    ofQuaternion q;
+    float cos_theta = u.normalize().dot(v.normalize());
+    float angle = acos(cos_theta)*100;
+    ofVec3f w = u.cross(v).normalize();
+    
+    //ofLog() << cos_theta << " " << angle << " " << w;
+    q.makeRotate(angle, w);
+    
+    return q;
+}
+
+ofQuaternion ofApp::twoToQ(ofxCvBlob blob0, ofxCvBlob blob1)
+{
+    ofQuaternion q;
+    
+    int x0 = (int)blob0.centroid.x;
+    int y0 = (int)blob0.centroid.y;
+    
+    int x1 = (int)blob1.centroid.x;
+    int y1 = (int)blob1.centroid.y;
+    
+    ofVec3f one = kinect.getWorldCoordinateAt(x0, y0);
+    ofVec3f two = kinect.getWorldCoordinateAt(x1, y1);
+    
+    //ofQuaternion q;
+    q = qFromV(one,two);
+    
+    return q;
+}
+
 
 void ofApp::drawPointCloud() {
     ofMesh *currentMesh = &totalMesh[totalMesh.size()-1];
     
     currentMesh->setMode(OF_PRIMITIVE_POINTS);
-    
-    
     
     //sample a new location
     int *x = &lastSampleLoc[0];
@@ -126,14 +265,67 @@ void ofApp::drawPointCloud() {
     
 }
 
+
+void ofApp::drawPointCloudAll() {
+    int w = 640;
+    int h = 480;
+    ofMesh mesh;
+    mesh.setMode(OF_PRIMITIVE_POINTS);
+    int step = 2;
+    for(int y = 0; y < h; y += step) {
+        for(int x = 0; x < w; x += step) {
+            if(kinect.getDistanceAt(x, y) > 0) {
+                mesh.addColor(kinect.getColorAt(x,y));
+                mesh.addVertex(kinect.getWorldCoordinateAt(x, y));
+            }
+        }
+    }
+    glPointSize(3);
+    ofPushMatrix();
+    // the projected points are 'upside down' and 'backwards'
+    ofScale(1, -1, -1);
+    ofTranslate(0, 0, -1000); // center the points a bit
+    ofEnableDepthTest();
+    mesh.drawVertices();
+    ofDisableDepthTest();
+    ofPopMatrix();
+    
+    
+}
+
+
 //--------------------------------------------------------------
 void ofApp::exit() {
-    kinect.setCameraTiltAngle(0); // zero the tilt on exit
+    //kinect.setCameraTiltAngle(0); // zero the tilt on exit
     kinect.close();
 }
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key){
+    switch (key) {
+        case '>':
+        case '.':
+            farThreshold ++;
+            if (farThreshold > 255) farThreshold = 255;
+            break;
+            
+        case '<':
+        case ',':
+            farThreshold --;
+            if (farThreshold < 0) farThreshold = 0;
+            break;
+            
+        case '+':
+        case '=':
+            nearThreshold ++;
+            if (nearThreshold > 255) nearThreshold = 255;
+            break;
+            
+        case '-':
+            nearThreshold --;
+            if (nearThreshold < 0) nearThreshold = 0;
+            break;
+    }
 }
 
 //--------------------------------------------------------------
@@ -172,6 +364,6 @@ void ofApp::gotMessage(ofMessage msg){
 }
 
 //--------------------------------------------------------------
-void ofApp::dragEvent(ofDragInfo dragInfo){
+void ofApp::dragEvent(ofDragInfo dragInfo){ 
     
 }
