@@ -2,8 +2,8 @@
 
 #include "ofMain.h"
 #include "ofxOpenCv.h"
-#include "ofxCvHaarFinder.h"
 #include "ofxKinect.h"
+//#include "ofxCvHaarFinder.h"
 
 class ofApp : public ofBaseApp{
     
@@ -26,42 +26,40 @@ class ofApp : public ofBaseApp{
         void dragEvent(ofDragInfo dragInfo);
         void gotMessage(ofMessage msg);
     
+    //source images
     ofxKinect kinect;
-    
     ofxCvGrayscaleImage	grayImage;
     ofxCvGrayscaleImage	depthImage;
     ofxCvColorImage		colorImage;
     ofxCvGrayscaleImage	redImage;
     
+    // Face based detection
+    //ofImage img;
+    //ofxCvHaarFinder finder;
+    
+    //BlobFinder
     ofxCvContourFinder 	contourFinder;
-    
-    ofImage img;
-    ofxCvHaarFinder finder;
-    
     int nearThreshold;
     int farThreshold;
-    
-    bool bDrawPointCloud;
-    
-    int angle;
+    int minBlobSize;
+    int maxBlobSize;
     
     // used for viewing the point cloud
     ofEasyCam easyCam;
-    ofCamera cam;
     
+    // Draw settings
     vector<ofMesh> totalMesh;
     int lastSecond = 0;
+    int lastSampleLoc[2];
     int w;
     int h;
     int minConnectionDistance; //how far can we connect vertexes
     int maxConnectionDistance; //how far can we connect vertexes
     int nearby;//how far to sample the neighbor
-    
     int minFigureDistance; //min distance from camera things being recorded should be
     int maxFigureDistance; //min distance from camera things being recorded should be
     
-    int lastSampleLoc[2];
-    
+    //camera manipulator
     ofQuaternion qFromV(ofVec3f u, ofVec3f v);
     ofQuaternion twoToQ(ofxCvBlob blob0, ofxCvBlob blob1);
     float blobAngle;

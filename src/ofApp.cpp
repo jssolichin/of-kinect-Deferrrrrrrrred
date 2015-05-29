@@ -2,6 +2,27 @@
 
 //--------------------------------------------------------------
 void ofApp::setup(){
+    
+    //---EDITABLES
+    //OPENCV Threshold
+    nearThreshold = 0;
+    farThreshold  = 32;
+    minBlobSize = (kinect.width*kinect.height)/16;
+    maxBlobSize = (kinect.width*kinect.height)/8;
+    
+    //MyPointCloud Threshold
+    w = 640;
+    h = 480;
+    nearby = 20;
+    minConnectionDistance = 10;
+    maxConnectionDistance = 30;
+    minFigureDistance = 400;
+    maxFigureDistance = 1300;
+    lastSampleLoc[0] = rand() % w;
+    lastSampleLoc[1] = rand() % h;
+    
+    //---SETUP
+    
     //ofSetLogLevel(OF_LOG_VERBOSE);
     
     // enable depth->video image calibration
@@ -12,8 +33,6 @@ void ofApp::setup(){
     //kinect.init(false, false); // disable video image (faster fps)
     
     kinect.open();		// opens first available kinect
-    //kinect.open(1);	// open a kinect by id, starting with 0 (sorted by serial # lexicographically))
-    //kinect.open("A00362A08602047A");	// open a kinect using it's unique serial #
     
     // print the intrinsic IR sensor values
     if(kinect.isConnected()) {
@@ -29,11 +48,7 @@ void ofApp::setup(){
     grayImage.allocate(kinect.width, kinect.height);
     colorImage.allocate(kinect.width, kinect.height);
     redImage.allocate(kinect.width, kinect.height);
-    
-    nearThreshold = 0;
-    farThreshold  = 32;
-    
-    
+
     ofSetFrameRate(60);
     
     glPointSize(3);
@@ -41,23 +56,12 @@ void ofApp::setup(){
     ofMesh newMesh;
     totalMesh.push_back(newMesh);
     
-    w = 640;
-    h = 480;
-    nearby = 20;
-    minConnectionDistance = 10;
-    maxConnectionDistance = 30;
-    
-    minFigureDistance = 400;
-    maxFigureDistance = 1300;
-    lastSampleLoc[0] = rand() % w;
-    lastSampleLoc[1] = rand() % h;
-    
     kinect.enableDepthNearValueWhite(false);
     
-    finder.setup("haarcascade_frontalface_default.xml");
-    img.loadImage("test.jpg");
+    //finder.setup("haarcascade_frontalface_default.xml");
+    //img.loadImage("test.jpg");
     
-    cam = ofCamera();
+    
 }
 
 //--------------------------------------------------------------
@@ -80,7 +84,6 @@ void ofApp::update(){
     colorImage.mirror(false, true);
     colorImage.convertToGrayscalePlanarImage(redImage, 0);
     
-    
     for(int i = numPixels; i > 0 ; i--){
         if( pix[i] > nearThreshold && pix[i] < farThreshold ){
             pix[i] = 255;
@@ -91,12 +94,9 @@ void ofApp::update(){
     
     //update the cv image
     grayImage.flagImageChanged();
+
     
-    
-    unsigned char * red = redImage.getPixels();
-    //numPixels = redImage.getWidth() * redImage.getHeight();
-    
-    contourFinder.findContours(grayImage, 900, (kinect.width*kinect.height)/8, 20, false);
+    contourFinder.findContours(grayImage, minBlobSize, maxBlobSize, 2, false);
     if(contourFinder.nBlobs >= 2){
         ofxCvBlob blob0 = contourFinder.blobs.at(0);
         ofxCvBlob blob1 = contourFinder.blobs.at(1);
@@ -127,8 +127,6 @@ void ofApp::draw(){
     redImage.draw(425, 15, 400, 300);
     grayImage.draw(15, 325, 400, 300);
     contourFinder.draw(15, 325, 400, 300);
-    //redImage.draw(0, 0);
-    
     
     
     char reportStr[1024];
@@ -137,14 +135,13 @@ void ofApp::draw(){
     
     /** App **/
     
+    /*
+    //find face blobs
     for(unsigned int i = 0; i < finder.blobs.size(); i++) {
-        
         ofRectangle cur = finder.blobs[i].boundingRect;
         ofRect(cur.x, cur.y, cur.width, cur.height);
     }
-    
-    
-    //easyCam.lookAt(ofVec3f(0, 0, 0));
+    */
     
     easyCam.begin();
     
@@ -284,7 +281,7 @@ void ofApp::drawPointCloudAll() {
     ofPushMatrix();
     // the projected points are 'upside down' and 'backwards'
     ofScale(1, -1, -1);
-    ofTranslate(0, 0, -1000); // center the points a bit
+    ofTranslate(0, 0, -500); // center the points a bit
     ofEnableDepthTest();
     mesh.drawVertices();
     ofDisableDepthTest();
