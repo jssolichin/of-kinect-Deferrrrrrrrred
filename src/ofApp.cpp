@@ -6,7 +6,7 @@ void ofApp::setup(){
     //---EDITABLES
     //OPENCV Threshold
     nearThreshold = 0;
-    farThreshold  = 32;
+    farThreshold  = 150;
     minBlobSize = 900;
     maxBlobSize = (kinect.width*kinect.height)/1;
     
@@ -14,10 +14,10 @@ void ofApp::setup(){
     w = 640;
     h = 480;
     nearby = 20;
-    minConnectionDistance = 10;
-    maxConnectionDistance = 30;
+    minConnectionDistance = 50;
+    maxConnectionDistance = 80;
     minFigureDistance = 400;
-    maxFigureDistance = 1300;
+    maxFigureDistance = 4000;
     
     //---SETUP
     
@@ -40,7 +40,7 @@ void ofApp::setup(){
         ofLogNotice() << "zero plane dist: " << kinect.getZeroPlaneDistance() << "mm";
     }
     
-    kinect.setCameraTiltAngle(20);
+    kinect.setCameraTiltAngle(-22);
     
     depthImage.allocate(kinect.width, kinect.height);
     grayImage.allocate(kinect.width, kinect.height);
@@ -69,8 +69,8 @@ void ofApp::update(){
     
     /** DEBUG **/
     
-    //depthImage.setFromPixels(pix, kinect.width, kinect.height);
-    //depthImage.flagImageChanged();
+    depthImage.setFromPixels(kinect.getDepthPixels(), kinect.width, kinect.height);
+    depthImage.flagImageChanged();
     
     grayImage.setFromPixels(kinect.getDepthPixels(), kinect.width, kinect.height);
     grayImage.mirror(false, true);
@@ -100,10 +100,10 @@ void ofApp::update(){
         ofxCvBlob blob1 = contourFinder.blobs.at(1);
         
         //make sure left blob always on left
-        if(blob0.centroid[0] < blob1.centroid[0]){
-            ofxCvBlob temp = blob0;
-            blob0 = blob1;
-            blob1 = temp;
+        if(blob1.centroid[0] < blob0.centroid[0]){
+            ofxCvBlob temp = blob1;
+            blob1 = blob0;
+            blob0 = temp;
         }
         
         /*
@@ -118,7 +118,9 @@ void ofApp::update(){
         
         if(deg != -1){
             //ofLogNotice() << deg;
-            easyCam.orbit(deg, 0,1000);
+            
+            easyCam.orbit(deg, 0,500);
+
         }
         
     }
@@ -128,12 +130,12 @@ void ofApp::update(){
 
 //--------------------------------------------------------------
 void ofApp::draw(){
+    ofBackground(0,0,0);
     ofSetColor(255, 255, 255);
-    
     
     /** DEBUG **/
     
-    //depthImage.draw(15, 15, 400, 300);
+    depthImage.draw(15, 15, 400, 300);
     redImage.draw(425, 15, 400, 300);
     grayImage.draw(15, 325, 400, 300);
     contourFinder.draw(15, 325, 400, 300);
@@ -175,17 +177,20 @@ double ofApp::getAngleBetweenBlobs(ofxCvBlob blob0, ofxCvBlob blob1){
     
     ofVec3f blobWorldPos0 =  kinect.getWorldCoordinateAt(blob0.centroid[0], blob0.centroid[1]);
     ofVec3f blobWorldPos1 =  kinect.getWorldCoordinateAt(blob1.centroid[0], blob1.centroid[1]);
+
     
     double arc = atan2(blobWorldPos1[2] - blobWorldPos0[2], blobWorldPos1[0] - blobWorldPos0[0]);
     double degrees = arc  * 180 / PI;
     
-    if (degrees < 0) degrees += 360;
-    else if (degrees > 360) degrees -= 360;
+    //if (degrees < 0) degrees += 360;
+    //else if (degrees > 360) degrees -= 360;
     
     if(blobWorldPos0[0] != 0 && blobWorldPos0[2] != 0 && blobWorldPos1[0] != 0  && blobWorldPos1[2] != 0) {
-        //ofLogNotice() << "A BLOB: " << blobWorldPos0[0] << ", " << blobWorldPos0[2];
-        //ofLogNotice() << "B BLOB: " << blobWorldPos1[0] << ", " << blobWorldPos1[2];
-        //ofLogNotice() << "FINAL: " << degrees;
+        ofLogNotice() << blob0.centroid[0] << " " << blob0.centroid[1];
+        ofLogNotice() << "A BLOB: " << blobWorldPos0[0] << ", " << blobWorldPos0[2];
+        ofLogNotice() << "B BLOB: " << blobWorldPos1[0] << ", " << blobWorldPos1[2];
+        ofLogNotice() << "DIFF: " << blobWorldPos1[2] - blobWorldPos0[2] << ", " << blobWorldPos1[0] - blobWorldPos0[0];
+        ofLogNotice() << "FINAL: " << degrees;
         
         return degrees;
     }
@@ -201,15 +206,29 @@ void ofApp::drawPointCloud() {
     currentMesh->setMode(OF_PRIMITIVE_POINTS);
     
     
+    
     for(int i = 0; i < 2; i++){
         
         float* x = &lastSampleLoc[i][0];
         float* y = &lastSampleLoc[i][1];
         
+        double multiplier = 1;
+        if(contourFinder.nBlobs >= 2){
+            int other = i == 0 ? 1 : 0;
+            multiplier = (contourFinder.blobs.at(i).area/contourFinder.blobs.at(other).area);
+            //ofLogNotice() << i << " " << other << " " <<multiplier;
+        }
+        
+        
         if(kinect.getDistanceAt(*x,*y) > minFigureDistance && kinect.getDistanceAt(*x,*y) < maxFigureDistance) {
             
             ofColor c = kinect.getColorAt((int)*x,(int)*y);
-            c.setBrightness(255*i);
+            
+            if(multiplier > 2 || multiplier < .5)
+            c.setBrightness(255 * multiplier);
+            
+            if(contourFinder.nBlobs == 1)
+            c.setSaturation( 128 );
             
             currentMesh->addColor(c);
             currentMesh->addVertex(kinect.getWorldCoordinateAt((int)*x, (int)*y));
@@ -223,7 +242,7 @@ void ofApp::drawPointCloud() {
     //draw each point every frame
     ofPushMatrix();
     ofScale(-1,-1,-1);
-    ofTranslate(0, 0, -1000);
+    ofTranslate(0, -100, -1000);
     ofEnableDepthTest();
     
     for(int i = 0; i < totalMesh.size(); i++){
