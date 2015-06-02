@@ -7,8 +7,8 @@ void ofApp::setup(){
     //OPENCV Threshold
     nearThreshold = 0;
     farThreshold  = 32;
-    minBlobSize = (kinect.width*kinect.height)/16;
-    maxBlobSize = (kinect.width*kinect.height)/8;
+    minBlobSize = 900;
+    maxBlobSize = (kinect.width*kinect.height)/1;
     
     //MyPointCloud Threshold
     w = 640;
@@ -18,8 +18,6 @@ void ofApp::setup(){
     maxConnectionDistance = 30;
     minFigureDistance = 400;
     maxFigureDistance = 1300;
-    lastSampleLoc[0] = rand() % w;
-    lastSampleLoc[1] = rand() % h;
     
     //---SETUP
     
@@ -101,6 +99,13 @@ void ofApp::update(){
         ofxCvBlob blob0 = contourFinder.blobs.at(0);
         ofxCvBlob blob1 = contourFinder.blobs.at(1);
         
+        //make sure left blob always on left
+        if(blob0.centroid[0] < blob1.centroid[0]){
+            ofxCvBlob temp = blob0;
+            blob0 = blob1;
+            blob1 = temp;
+        }
+        
         /*
          finder.findHaarObjects(redImage);
          if(finder.blobs.size() >= 2){
@@ -109,7 +114,12 @@ void ofApp::update(){
          ofxCvBlob blob1 = finder.blobs[1];
          */
         
-        blobQ = twoToQ(blob0, blob1);
+        double deg = getAngleBetweenBlobs(blob0, blob1);
+        
+        if(deg != -1){
+            //ofLogNotice() << deg;
+            easyCam.orbit(deg, 0,1000);
+        }
         
     }
     
@@ -147,16 +157,12 @@ void ofApp::draw(){
     
     ofPushMatrix();
     
-    blobQ.getRotate(blobAngle, blobAxis.x, blobAxis.y, blobAxis.z);
-    
-    ofRotate(blobAngle, blobAxis.x, blobAxis.y, blobAxis.z);
-    
     ofSetColor(0,0,255);
     ofNoFill();
     ofDrawBox(0,0, 0, 50, 50, 100);
     
-    //drawPointCloud();
-    drawPointCloudAll();
+    drawPointCloud();
+    //drawPointCloudAll();
     
     ofPopMatrix();
     
@@ -165,36 +171,27 @@ void ofApp::draw(){
     
 }
 
-ofQuaternion ofApp::qFromV(ofVec3f v, ofVec3f u)
-{
-    ofQuaternion q;
-    float cos_theta = u.normalize().dot(v.normalize());
-    float angle = acos(cos_theta)*100;
-    ofVec3f w = u.cross(v).normalize();
+double ofApp::getAngleBetweenBlobs(ofxCvBlob blob0, ofxCvBlob blob1){
     
-    //ofLog() << cos_theta << " " << angle << " " << w;
-    q.makeRotate(angle, w);
+    ofVec3f blobWorldPos0 =  kinect.getWorldCoordinateAt(blob0.centroid[0], blob0.centroid[1]);
+    ofVec3f blobWorldPos1 =  kinect.getWorldCoordinateAt(blob1.centroid[0], blob1.centroid[1]);
     
-    return q;
-}
-
-ofQuaternion ofApp::twoToQ(ofxCvBlob blob0, ofxCvBlob blob1)
-{
-    ofQuaternion q;
+    double arc = atan2(blobWorldPos1[2] - blobWorldPos0[2], blobWorldPos1[0] - blobWorldPos0[0]);
+    double degrees = arc  * 180 / PI;
     
-    int x0 = (int)blob0.centroid.x;
-    int y0 = (int)blob0.centroid.y;
+    if (degrees < 0) degrees += 360;
+    else if (degrees > 360) degrees -= 360;
     
-    int x1 = (int)blob1.centroid.x;
-    int y1 = (int)blob1.centroid.y;
+    if(blobWorldPos0[0] != 0 && blobWorldPos0[2] != 0 && blobWorldPos1[0] != 0  && blobWorldPos1[2] != 0) {
+        //ofLogNotice() << "A BLOB: " << blobWorldPos0[0] << ", " << blobWorldPos0[2];
+        //ofLogNotice() << "B BLOB: " << blobWorldPos1[0] << ", " << blobWorldPos1[2];
+        //ofLogNotice() << "FINAL: " << degrees;
+        
+        return degrees;
+    }
+    else
+        return -1;
     
-    ofVec3f one = kinect.getWorldCoordinateAt(x0, y0);
-    ofVec3f two = kinect.getWorldCoordinateAt(x1, y1);
-    
-    //ofQuaternion q;
-    q = qFromV(one,two);
-    
-    return q;
 }
 
 
@@ -203,25 +200,29 @@ void ofApp::drawPointCloud() {
     
     currentMesh->setMode(OF_PRIMITIVE_POINTS);
     
-    //sample a new location
-    int *x = &lastSampleLoc[0];
-    int *y = &lastSampleLoc[1];
-    if(kinect.getDistanceAt(*x,*y) > minFigureDistance && kinect.getDistanceAt(*x,*y) < maxFigureDistance) {
-        
-        currentMesh->addColor(kinect.getColorAt(*x,*y));
-        currentMesh->addVertex(kinect.getWorldCoordinateAt(*x, *y));
-    }
-    else {
-        lastSampleLoc[0] = rand() % w;
-        lastSampleLoc[1] = rand() % h;
-    }
     
-    *x += ofRandom((-1*nearby), nearby);
-    *y += ofRandom((-1*nearby), nearby);
+    for(int i = 0; i < 2; i++){
+        
+        float* x = &lastSampleLoc[i][0];
+        float* y = &lastSampleLoc[i][1];
+        
+        if(kinect.getDistanceAt(*x,*y) > minFigureDistance && kinect.getDistanceAt(*x,*y) < maxFigureDistance) {
+            
+            ofColor c = kinect.getColorAt((int)*x,(int)*y);
+            c.setBrightness(255*i);
+            
+            currentMesh->addColor(c);
+            currentMesh->addVertex(kinect.getWorldCoordinateAt((int)*x, (int)*y));
+        }
+        
+        *x += ofRandom((-1*nearby), nearby);
+        *y += ofRandom((-1*nearby), nearby);
+        
+    }
     
     //draw each point every frame
     ofPushMatrix();
-    ofScale(.8, -.8, -.8);
+    ofScale(-1,-1,-1);
     ofTranslate(0, 0, -1000);
     ofEnableDepthTest();
     
@@ -252,8 +253,16 @@ void ofApp::drawPointCloud() {
             }
         }
         
-        lastSampleLoc[0] = rand() % w;
-        lastSampleLoc[1] = rand() % h;
+        //Set new sample loc
+        for(int i = 0; i < contourFinder.nBlobs; i++){
+            ofxCvBlob blob = contourFinder.blobs.at(i);
+            ofPoint thePoint = blob.pts[ofRandom(0, blob.nPts)];
+            
+            lastSampleLoc[i] = thePoint;
+            //we have to reflect on Y axis since Kinect is going to be drawn backward
+            lastSampleLoc[i][0] = ofMap(lastSampleLoc[i][0], 0, w, w, 0);
+            
+        }
         
         ofMesh mesh;
         totalMesh.push_back(mesh);
@@ -261,7 +270,6 @@ void ofApp::drawPointCloud() {
     }
     
 }
-
 
 void ofApp::drawPointCloudAll() {
     int w = 640;
@@ -280,12 +288,21 @@ void ofApp::drawPointCloudAll() {
     glPointSize(3);
     ofPushMatrix();
     // the projected points are 'upside down' and 'backwards'
-    ofScale(1, -1, -1);
-    ofTranslate(0, 0, -500); // center the points a bit
+    ofScale(-1, -1, -1);
+    ofTranslate(0, 0, -800); // center the points a bit
     ofEnableDepthTest();
     mesh.drawVertices();
     ofDisableDepthTest();
     ofPopMatrix();
+    
+    for(int i = 0; i < contourFinder.nBlobs; i++){
+        ofxCvBlob blob = contourFinder.blobs.at(i);
+        
+        for(int j = 0; j<blob.nPts; j++){
+            ofCircle(blob.pts[j][0],blob.pts[j][1],5);
+        }
+    }
+    
     
     
 }
