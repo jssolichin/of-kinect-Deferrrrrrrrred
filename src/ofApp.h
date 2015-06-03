@@ -2,8 +2,8 @@
 
 #include "ofMain.h"
 #include "ofxOpenCv.h"
-#include "ofxCvHaarFinder.h"
 #include "ofxKinect.h"
+#include "ofxPostProcessing.h"
 
 class ofApp : public ofBaseApp{
     
@@ -27,6 +27,15 @@ public:
     void gotMessage(ofMessage msg);
     
 private:
+    void numBlobsIndicator(int n);
+    void startTotalMesh();
+    int timeSegment = 8;
+    int nextSegmentDistance = -500;
+    int startCameraDist = 250;
+    int cameraDist = startCameraDist;
+    bool controlBlobsManually = false;
+    int numBlobs = 0;
+    int usedBlobs =-1;
     ofxKinect kinect;
     
     ofxCvGrayscaleImage	grayImage;
@@ -36,22 +45,16 @@ private:
     
     ofxCvContourFinder 	contourFinder;
     
-    ofImage img;
-    ofxCvHaarFinder finder;
-    
     int nearThreshold;
-    int farThreshold;
-    
-    bool bDrawPointCloud;
-    
-    int angle;
+    int farThreshold;;
     
     // used for viewing the point cloud
     ofEasyCam easyCam;
-    ofCamera cam;
     
-    vector<ofMesh> totalMesh;
+    vector<vector<ofMesh> > totalMesh;
+    int lastMinute = 0;
     int lastSecond = 0;
+    
     int w;
     int h;
     int minConnectionDistance; //how far can we connect vertexes

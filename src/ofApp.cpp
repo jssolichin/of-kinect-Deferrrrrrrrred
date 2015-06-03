@@ -2,24 +2,23 @@
 
 //--------------------------------------------------------------
 void ofApp::setup(){
-    
-    //---EDITABLES
+    //--- EDITABLES
     //OPENCV Threshold
     nearThreshold = 0;
-    farThreshold  = 150;
-    minBlobSize = 900;
+    farThreshold  = 170;
+    minBlobSize = (kinect.width*kinect.height)/15;
     maxBlobSize = (kinect.width*kinect.height)/1;
     
     //MyPointCloud Threshold
     w = 640;
     h = 480;
     nearby = 20;
-    minConnectionDistance = 50;
-    maxConnectionDistance = 80;
-    minFigureDistance = 400;
-    maxFigureDistance = 4000;
+    minConnectionDistance = 30;
+    maxConnectionDistance = 50;
+    minFigureDistance = 200;
+    maxFigureDistance = 2500;
     
-    //---SETUP
+    //--- KINECT SETUP
     
     //ofSetLogLevel(OF_LOG_VERBOSE);
     
@@ -40,7 +39,11 @@ void ofApp::setup(){
         ofLogNotice() << "zero plane dist: " << kinect.getZeroPlaneDistance() << "mm";
     }
     
-    kinect.setCameraTiltAngle(-22);
+    kinect.setCameraTiltAngle(-15);
+    
+    kinect.enableDepthNearValueWhite(false);
+    
+    //--- IMAGE SETUP
     
     depthImage.allocate(kinect.width, kinect.height);
     grayImage.allocate(kinect.width, kinect.height);
@@ -51,13 +54,8 @@ void ofApp::setup(){
     
     glPointSize(3);
     
-    ofMesh newMesh;
-    totalMesh.push_back(newMesh);
+    startTotalMesh();
     
-    kinect.enableDepthNearValueWhite(false);
-    
-    //finder.setup("haarcascade_frontalface_default.xml");
-    //img.loadImage("test.jpg");
     
     
 }
@@ -92,40 +90,59 @@ void ofApp::update(){
     
     //update the cv image
     grayImage.flagImageChanged();
-
     
-    contourFinder.findContours(grayImage, minBlobSize, maxBlobSize, 2, false);
-    if(contourFinder.nBlobs >= 2){
-        ofxCvBlob blob0 = contourFinder.blobs.at(0);
-        ofxCvBlob blob1 = contourFinder.blobs.at(1);
-        
-        //make sure left blob always on left
-        if(blob1.centroid[0] < blob0.centroid[0]){
-            ofxCvBlob temp = blob1;
-            blob1 = blob0;
-            blob0 = temp;
-        }
-        
-        /*
-         finder.findHaarObjects(redImage);
-         if(finder.blobs.size() >= 2){
-         
-         ofxCvBlob blob0 = finder.blobs[0];
-         ofxCvBlob blob1 = finder.blobs[1];
-         */
-        
-        double deg = getAngleBetweenBlobs(blob0, blob1);
-        
-        if(deg != -1){
-            //ofLogNotice() << deg;
+    contourFinder.findContours(grayImage, minBlobSize, maxBlobSize, 5, false);
+    usedBlobs = contourFinder.nBlobs;
+    if(controlBlobsManually)
+        usedBlobs = numBlobs;
+    
+    //Do image computation
+    
+    switch (usedBlobs) {
+        case 0:
+            break;
+        case 1:
+            if(totalMesh.size() <= 0)
+                startTotalMesh();
             
-            easyCam.orbit(deg, 0,500);
-
-        }
-        
+            easyCam.orbit(0, 0, cameraDist);
+            break;
+        case 2:
+            if(!controlBlobsManually && contourFinder.nBlobs == 2 ){
+                ofxCvBlob blob0 = contourFinder.blobs.at(0);
+                ofxCvBlob blob1 = contourFinder.blobs.at(1);
+                
+                //make sure left blob always on left
+                if(blob1.centroid[0] < blob0.centroid[0]){
+                    ofxCvBlob temp = blob1;
+                    blob1 = blob0;
+                    blob0 = temp;
+                }
+                
+                double deg = getAngleBetweenBlobs(blob0, blob1);
+                
+                if(deg != -1){
+                    //ofLogNotice() << deg;
+                    easyCam.orbit(deg, 0,cameraDist);
+                }
+                
+            }
+            break;
+        case 3:
+            easyCam.dolly(-1);
+            break;
+        case 4:
+            if(totalMesh.size() > 0){
+                for(int i=0; i < totalMesh.size(); i++){
+                    totalMesh[i].clear();
+                }
+                totalMesh.clear();
+            }
+            break;
     }
     
-    
+    if(usedBlobs != 0)
+        cameraDist += 1;
 }
 
 //--------------------------------------------------------------
@@ -133,43 +150,34 @@ void ofApp::draw(){
     ofBackground(0,0,0);
     ofSetColor(255, 255, 255);
     
-    /** DEBUG **/
+    //-- DEBUG
     
-    depthImage.draw(15, 15, 400, 300);
-    redImage.draw(425, 15, 400, 300);
-    grayImage.draw(15, 325, 400, 300);
-    contourFinder.draw(15, 325, 400, 300);
+    //depthImage.draw(15, 15, 400, 300);
+    //redImage.draw(425, 15, 400, 300);
+    //grayImage.draw(15, 325, 400, 300);
+    //contourFinder.draw(15, 325, 400, 300);
     
+    //char reportStr[1024];
+    //sprintf(reportStr, "set near threshold %i (press: + -)\nset far threshold %i (press: < >)\nnum blobs found %i, manual blobs: %i \nfps: %i", nearThreshold, farThreshold, usedBlobs, controlBlobsManually, (int)ofGetFrameRate() );
+    //ofDrawBitmapString(reportStr, 20, 650);
+
     
-    char reportStr[1024];
-    sprintf(reportStr, "set near threshold %i (press: + -)\nset far threshold %i (press: < >)\nnum blobs found %i, fps: %i", nearThreshold, farThreshold, (int)contourFinder.blobs.size(), (int)ofGetFrameRate());
-    ofDrawBitmapString(reportStr, 20, 650);
-    
-    /** App **/
-    
-    /*
-    //find face blobs
-    for(unsigned int i = 0; i < finder.blobs.size(); i++) {
-        ofRectangle cur = finder.blobs[i].boundingRect;
-        ofRect(cur.x, cur.y, cur.width, cur.height);
-    }
-    */
+    //-- App
     
     easyCam.begin();
     
-    ofPushMatrix();
-    
-    ofSetColor(0,0,255);
-    ofNoFill();
-    ofDrawBox(0,0, 0, 50, 50, 100);
-    
-    drawPointCloud();
-    //drawPointCloudAll();
-    
-    ofPopMatrix();
+        ofPushMatrix();
+        
+        if(totalMesh.size() > 0){
+            drawPointCloud();
+            //drawPointCloudAll();
+        }
+        
+        ofPopMatrix();
     
     easyCam.end();
     
+    numBlobsIndicator(usedBlobs);
     
 }
 
@@ -177,7 +185,6 @@ double ofApp::getAngleBetweenBlobs(ofxCvBlob blob0, ofxCvBlob blob1){
     
     ofVec3f blobWorldPos0 =  kinect.getWorldCoordinateAt(blob0.centroid[0], blob0.centroid[1]);
     ofVec3f blobWorldPos1 =  kinect.getWorldCoordinateAt(blob1.centroid[0], blob1.centroid[1]);
-
     
     double arc = atan2(blobWorldPos1[2] - blobWorldPos0[2], blobWorldPos1[0] - blobWorldPos0[0]);
     double degrees = arc  * 180 / PI;
@@ -186,11 +193,10 @@ double ofApp::getAngleBetweenBlobs(ofxCvBlob blob0, ofxCvBlob blob1){
     //else if (degrees > 360) degrees -= 360;
     
     if(blobWorldPos0[0] != 0 && blobWorldPos0[2] != 0 && blobWorldPos1[0] != 0  && blobWorldPos1[2] != 0) {
-        ofLogNotice() << blob0.centroid[0] << " " << blob0.centroid[1];
-        ofLogNotice() << "A BLOB: " << blobWorldPos0[0] << ", " << blobWorldPos0[2];
-        ofLogNotice() << "B BLOB: " << blobWorldPos1[0] << ", " << blobWorldPos1[2];
-        ofLogNotice() << "DIFF: " << blobWorldPos1[2] - blobWorldPos0[2] << ", " << blobWorldPos1[0] - blobWorldPos0[0];
-        ofLogNotice() << "FINAL: " << degrees;
+        //ofLogNotice() << "A BLOB: " << blobWorldPos0[0] << ", " << blobWorldPos0[2];
+        //ofLogNotice() << "B BLOB: " << blobWorldPos1[0] << ", " << blobWorldPos1[2];
+        //ofLogNotice() << "DIFF: " << blobWorldPos1[2] - blobWorldPos0[2] << ", " << blobWorldPos1[0] - blobWorldPos0[0];
+        //ofLogNotice() << "FINAL: " << degrees;
         
         return degrees;
     }
@@ -201,60 +207,87 @@ double ofApp::getAngleBetweenBlobs(ofxCvBlob blob0, ofxCvBlob blob1){
 
 
 void ofApp::drawPointCloud() {
-    ofMesh *currentMesh = &totalMesh[totalMesh.size()-1];
+    
+    vector<ofMesh>* currentMeshes = &totalMesh[totalMesh.size()-1];
+    ofMesh *currentMesh = &currentMeshes->at(currentMeshes->size()-1);
+    
+    //-- DISPLAY CURRENT
     
     currentMesh->setMode(OF_PRIMITIVE_POINTS);
     
-    
-    
     for(int i = 0; i < 2; i++){
         
-        float* x = &lastSampleLoc[i][0];
-        float* y = &lastSampleLoc[i][1];
-        
-        double multiplier = 1;
-        if(contourFinder.nBlobs >= 2){
-            int other = i == 0 ? 1 : 0;
-            multiplier = (contourFinder.blobs.at(i).area/contourFinder.blobs.at(other).area);
-            //ofLogNotice() << i << " " << other << " " <<multiplier;
+        for(int j = 0; j< 10; j++){
+            
+            float* x = &lastSampleLoc[i][0];
+            float* y = &lastSampleLoc[i][1];
+            
+            //Modify colors if applicable
+            double brightnessMultiplier = 1;
+            double saturationMultiplier = 1;
+            
+            //If more than one blob, set colors based on size difference, otherwise based on size of screen
+            if(contourFinder.nBlobs >= 2){
+                int other = i == 0 ? 1 : 0;
+                brightnessMultiplier = (contourFinder.blobs.at(i).area/contourFinder.blobs.at(other).area);
+            }
+            else if(contourFinder.nBlobs == 1){
+                brightnessMultiplier = contourFinder.blobs.at(0).boundingRect.getWidth() / kinect.width;
+                saturationMultiplier = contourFinder.blobs.at(0).boundingRect.getHeight() / kinect.height;
+            }
+            
+            //Add the points
+            if(*x > 0 && *x < w && *y > 9 && *y < h && kinect.getDistanceAt(*x,*y) > minFigureDistance && kinect.getDistanceAt(*x,*y) < maxFigureDistance) {
+                
+                ofColor c = kinect.getColorAt((int)*x,(int)*y);
+                
+                if(contourFinder.nBlobs >= 2){
+                    if(brightnessMultiplier > 2 || brightnessMultiplier < .5)
+                        c.setBrightness(255 * brightnessMultiplier);
+                }
+                else if(contourFinder.nBlobs == 1){
+                    c.setBrightness(255 * brightnessMultiplier);
+                    c.setSaturation(255 * saturationMultiplier);
+                }
+                
+                currentMesh->addColor(c);
+                currentMesh->addVertex(kinect.getWorldCoordinateAt((int)*x, (int)*y));
+            }
+            
+            //set next sample points somewhere nearby
+            *x += ofRandom((-1*nearby), nearby);
+            *y += ofRandom((-1*nearby), nearby);
         }
-        
-        
-        if(kinect.getDistanceAt(*x,*y) > minFigureDistance && kinect.getDistanceAt(*x,*y) < maxFigureDistance) {
-            
-            ofColor c = kinect.getColorAt((int)*x,(int)*y);
-            
-            if(multiplier > 2 || multiplier < .5)
-            c.setBrightness(255 * multiplier);
-            
-            if(contourFinder.nBlobs == 1)
-            c.setSaturation( 128 );
-            
-            currentMesh->addColor(c);
-            currentMesh->addVertex(kinect.getWorldCoordinateAt((int)*x, (int)*y));
-        }
-        
-        *x += ofRandom((-1*nearby), nearby);
-        *y += ofRandom((-1*nearby), nearby);
         
     }
     
     //draw each point every frame
     ofPushMatrix();
-    ofScale(-1,-1,-1);
-    ofTranslate(0, -100, -1000);
-    ofEnableDepthTest();
-    
-    for(int i = 0; i < totalMesh.size(); i++){
-        totalMesh[i].drawVertices();
-    }
-    
-    ofDisableDepthTest();
+        ofScale(-1,-1,-1);
+        ofTranslate(0, -100, -500);
+        ofEnableDepthTest();
+        
+        ofSetColor(255,255,255,.1);
+        for(int i = 0; i < totalMesh.size(); i++){
+            for(int j = 0; j < totalMesh[i].size(); j++){
+                
+                ofPushMatrix();
+                ofTranslate(0, 0, nextSegmentDistance * i );
+                totalMesh[i][j].drawVertices();
+                ofPopMatrix();
+            }
+        }
+        
+        ofDisableDepthTest();
     ofPopMatrix();
     
+    //-- DISPLAY PREVIOUS
+    
     //connect the lines every second
-    float currentSec = ofGetElapsedTimef();
-    if(currentSec> lastSecond+1){
+    float currentSec = (int)ofGetElapsedTimef();
+
+    if(currentSec > lastSecond){
+
         lastSecond = currentSec;
         
         currentMesh->setMode(OF_PRIMITIVE_LINES);
@@ -277,6 +310,7 @@ void ofApp::drawPointCloud() {
             ofxCvBlob blob = contourFinder.blobs.at(i);
             ofPoint thePoint = blob.pts[ofRandom(0, blob.nPts)];
             
+            //lastSampleLoc[i] = ofPoint(rand() % w, rand() % h);
             lastSampleLoc[i] = thePoint;
             //we have to reflect on Y axis since Kinect is going to be drawn backward
             lastSampleLoc[i][0] = ofMap(lastSampleLoc[i][0], 0, w, w, 0);
@@ -284,10 +318,26 @@ void ofApp::drawPointCloud() {
         }
         
         ofMesh mesh;
-        totalMesh.push_back(mesh);
+        currentMeshes->push_back(mesh);
+        //ofLogNotice() << "added new second";
         
     }
     
+    float currentMin = (floor)(currentSec/ timeSegment);
+    if(currentMin > lastMinute){
+        
+        lastMinute = currentMin;
+        
+        vector<ofMesh> meshes;
+        totalMesh.push_back(meshes);
+        ofMesh newMesh;
+        totalMesh[totalMesh.size()-1].push_back(newMesh);
+        
+        //ofLogNotice() << "added new minute";
+        
+    }
+    
+    //ofLogNotice() << currentMin << " " << currentSec;
 }
 
 void ofApp::drawPointCloudAll() {
@@ -326,7 +376,37 @@ void ofApp::drawPointCloudAll() {
     
 }
 
+void ofApp::startTotalMesh(){
+    //ofLogNotice() << "Create Total Mesh";
+    
+    vector<ofMesh> newMeshes;
+    totalMesh.push_back(newMeshes);
+    ofMesh newMesh;
+    totalMesh[0].push_back(newMesh);
+    
+    cameraDist = startCameraDist;
 
+}
+
+void ofApp::numBlobsIndicator(int n) {
+    
+    for(int i = 0; i < 4; i++){
+        
+        ofPushMatrix();
+        
+        ofSetColor(255, 255, 255);
+        
+        if(i<n)
+            ofFill();
+        else
+            ofNoFill();
+        
+        ofCircle(ofPoint((i*15) + (ofGetWidth()/2 - 15*2.5 + 5), ofGetHeight() - 15 ), 5);
+        
+        ofPopMatrix();
+    }
+    
+}
 //--------------------------------------------------------------
 void ofApp::exit() {
     //kinect.setCameraTiltAngle(0); // zero the tilt on exit
@@ -357,6 +437,18 @@ void ofApp::keyPressed(int key){
         case '-':
             nearThreshold --;
             if (nearThreshold < 0) nearThreshold = 0;
+            break;
+            
+        case 'm':
+            controlBlobsManually = !controlBlobsManually;
+            break;
+            
+        case 'b':
+            numBlobs++;
+            break;
+            
+        case 'v':
+            numBlobs--;
             break;
     }
 }
