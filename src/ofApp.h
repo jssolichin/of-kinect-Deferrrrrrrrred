@@ -29,13 +29,16 @@ public:
 private:
     void numBlobsIndicator(int n);
     void startTotalMesh();
-    int timeSegment = 8;
-    int nextSegmentDistance = -500;
-    int startCameraDist = 250;
-    int cameraDist = startCameraDist;
+
+    int timeSegment;
+    int nextSegmentDistance;
+    int startCameraDist;
+    int cameraDist;
+
     bool controlBlobsManually = false;
     int numBlobs = 0;
     int usedBlobs =-1;
+    
     ofxKinect kinect;
     
     ofxCvGrayscaleImage	grayImage;
@@ -51,9 +54,11 @@ private:
     // used for viewing the point cloud
     ofEasyCam easyCam;
     
-    vector<vector<ofMesh> > totalMesh;
+    deque<vector<ofMesh> > totalMesh;
     int lastMinute = 0;
     int lastSecond = 0;
+    int actualMinute = 0;
+    int lastPictureTaken =0;
     
     int w;
     int h;
@@ -69,7 +74,7 @@ private:
     ofQuaternion qFromV(ofVec3f u, ofVec3f v);
     ofQuaternion twoToQ(ofxCvBlob blob0, ofxCvBlob blob1);
     
-    double minBlobSize;
-    double maxBlobSize;
-    
+    int lastCameraDist;
+    int diffCameraDist;
+    int previousNBlobs;
 };

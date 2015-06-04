@@ -6,17 +6,20 @@ void ofApp::setup(){
     //OPENCV Threshold
     nearThreshold = 0;
     farThreshold  = 170;
-    minBlobSize = (kinect.width*kinect.height)/15;
-    maxBlobSize = (kinect.width*kinect.height)/1;
     
     //MyPointCloud Threshold
     w = 640;
     h = 480;
     nearby = 20;
     minConnectionDistance = 30;
-    maxConnectionDistance = 50;
+    maxConnectionDistance = 45;
     minFigureDistance = 200;
     maxFigureDistance = 2500;
+    
+    timeSegment = 8;
+    nextSegmentDistance = -500;
+    startCameraDist = 250;
+    cameraDist = startCameraDist;
     
     //--- KINECT SETUP
     
@@ -56,8 +59,8 @@ void ofApp::setup(){
     
     startTotalMesh();
     
-    
-    
+    ofHideCursor();
+
 }
 
 //--------------------------------------------------------------
@@ -91,7 +94,8 @@ void ofApp::update(){
     //update the cv image
     grayImage.flagImageChanged();
     
-    contourFinder.findContours(grayImage, minBlobSize, maxBlobSize, 5, false);
+    contourFinder.findContours(grayImage, (kinect.width*kinect.height)/24, (kinect.width*kinect.height)/2, 4, false, true); //15 min
+    //ofLogNotice() << contourFinder.nBlobs << " " << ofGetElapsedTimef();
     usedBlobs = contourFinder.nBlobs;
     if(controlBlobsManually)
         usedBlobs = numBlobs;
@@ -104,6 +108,9 @@ void ofApp::update(){
         case 1:
             if(totalMesh.size() <= 0)
                 startTotalMesh();
+            
+            if(previousNBlobs != 1)
+                cameraDist = 480 * totalMesh.size();
             
             easyCam.orbit(0, 0, cameraDist);
             break;
@@ -122,8 +129,8 @@ void ofApp::update(){
                 double deg = getAngleBetweenBlobs(blob0, blob1);
                 
                 if(deg != -1){
-                    //ofLogNotice() << deg;
-                    easyCam.orbit(deg, 0,cameraDist);
+                    //ofLogNotice() << deg << " " << cameraDist;
+                    easyCam.orbit(deg, 0, 1500, ofVec3f(0, 0,cameraDist- 1000));
                 }
                 
             }
@@ -141,7 +148,9 @@ void ofApp::update(){
             break;
     }
     
-    if(usedBlobs != 0)
+    previousNBlobs = usedBlobs;
+    
+    if(usedBlobs != 0 && usedBlobs != 2)
         cameraDist += 1;
 }
 
@@ -217,7 +226,7 @@ void ofApp::drawPointCloud() {
     
     for(int i = 0; i < 2; i++){
         
-        for(int j = 0; j< 10; j++){
+        for(int j = 0; j< 13; j++){
             
             float* x = &lastSampleLoc[i][0];
             float* y = &lastSampleLoc[i][1];
@@ -286,7 +295,7 @@ void ofApp::drawPointCloud() {
     //connect the lines every second
     float currentSec = (int)ofGetElapsedTimef();
 
-    if(currentSec > lastSecond){
+    if(currentSec > lastSecond ){
 
         lastSecond = currentSec;
         
@@ -323,19 +332,46 @@ void ofApp::drawPointCloud() {
         
     }
     
-    float currentMin = (floor)(currentSec/ timeSegment);
-    if(currentMin > lastMinute){
+    int currentMin = (floor)(currentSec/ timeSegment);
+    if(currentMin > lastMinute && contourFinder.nBlobs != 2 && contourFinder.nBlobs != 0){
         
         lastMinute = currentMin;
+        
+        if(totalMesh.size() >= 20 ){
+            for(int i = 0; i < 10; i++)
+                totalMesh.pop_front();
+            
+            cameraDist = 500 * totalMesh.size();
+            
+            //ofLog() << "reset";
+        }
         
         vector<ofMesh> meshes;
         totalMesh.push_back(meshes);
         ofMesh newMesh;
         totalMesh[totalMesh.size()-1].push_back(newMesh);
         
+        diffCameraDist = cameraDist - lastCameraDist;
+        lastCameraDist = cameraDist;
+        //ofLogNotice() << diffCameraDist;
+        
         //ofLogNotice() << "added new minute";
         
+        
+        
     }
+    
+    int pictureTime = (int)(floor)(currentSec/60);
+    if(pictureTime > actualMinute  && contourFinder.nBlobs != 2 && contourFinder.nBlobs != 0){
+        if(pictureTime % 1 == 0 && lastPictureTaken != pictureTime){
+            lastPictureTaken = pictureTime;
+            //ofLogNotice() << pictureTime;
+            ofSaveFrame();
+        }
+    }
+    
+    
+    
     
     //ofLogNotice() << currentMin << " " << currentSec;
 }
