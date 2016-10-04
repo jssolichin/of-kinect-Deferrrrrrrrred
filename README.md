@@ -18,7 +18,7 @@ It is a generative piece exploring the relationship between the viewer and art. 
 ![](http://jssolichin.com/blog/wp-content/uploads/2015/06/IMG_7910.jpg)
 
 # More
-* [Background, Research, and Thoughts](http://jssolichin.com/deferrrrrrrrred/)
+* [Background, Research, and Thoughts](http://jssolichin.com/blog/deferrrrrrrrred/)
 * [@Deferrrrrrrrred](https://twitter.com/deferrrrrrrrred) which tweeted live the images produced during the piece's exhibition at UCLA. 
 
 # Special Thanks
