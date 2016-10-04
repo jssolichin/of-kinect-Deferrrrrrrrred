@@ -6,16 +6,16 @@ It is a generative piece exploring the relationship between the viewer and art. 
 [Video Demo](https://vimeo.com/134574224)
 
 # Sample Prints
-![](http://jssolichin.com/wp-content/uploads/2015/06/Screen-Shot-2015-06-11-at-10.48.24-AM.png)
-![](http://jssolichin.com/wp-content/uploads/2015/06/Screen-Shot-2015-06-11-at-10.48.52-AM.png)
-![](http://jssolichin.com/wp-content/uploads/2015/06/Screen-Shot-2015-06-11-at-10.49.31-AM.png)
-![](http://jssolichin.com/wp-content/uploads/2015/06/Screen-Shot-2015-06-11-at-10.49.42-AM.png)
-![](http://jssolichin.com/wp-content/uploads/2015/06/Screen-Shot-2015-06-11-at-10.49.09-AM.png)
+![](http://jssolichin.com/blog/wp-content/uploads/2015/06/Screen-Shot-2015-06-11-at-10.48.24-AM.png)
+![](http://jssolichin.com/blog/wp-content/uploads/2015/06/Screen-Shot-2015-06-11-at-10.48.52-AM.png)
+![](http://jssolichin.com/blog/wp-content/uploads/2015/06/Screen-Shot-2015-06-11-at-10.49.31-AM.png)
+![](http://jssolichin.com/blog/wp-content/uploads/2015/06/Screen-Shot-2015-06-11-at-10.49.42-AM.png)
+![](http://jssolichin.com/blog/wp-content/uploads/2015/06/Screen-Shot-2015-06-11-at-10.49.09-AM.png)
 
 # Usage Examples
-![](http://jssolichin.com/wp-content/uploads/2015/06/IMG_1995.jpg)
-![](http://jssolichin.com/wp-content/uploads/2015/06/IMG_7871.jpg)
-![](http://jssolichin.com/wp-content/uploads/2015/06/IMG_7910.jpg)
+![](http://jssolichin.com/blog/wp-content/uploads/2015/06/IMG_1995.jpg)
+![](http://jssolichin.com/blog/wp-content/uploads/2015/06/IMG_7871.jpg)
+![](http://jssolichin.com/blog/wp-content/uploads/2015/06/IMG_7910.jpg)
 
 # More
 * [Background, Research, and Thoughts](http://jssolichin.com/deferrrrrrrrred/)
